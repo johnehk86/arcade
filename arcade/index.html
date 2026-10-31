@@ -88,6 +88,16 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .bar i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--pink),#ff9bb7);transform-origin:left;transition:transform .6s cubic-bezier(.2,.9,.3,1)}
 .res .r3 .bar{background:#efe9ff}.res .r3 .bar i{background:linear-gradient(90deg,var(--lav),#cbbdff)}
 
+.install{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:22px;
+  background:linear-gradient(90deg,#e8fbf5,#f2ecff);border:2px solid #c9f2e4;box-shadow:0 4px 14px rgba(86,219,193,.18)}
+.install-ic{flex:none;width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:#fff;border:1px solid #c9f2e4}
+.install-ic svg{width:20px;height:20px;fill:none;stroke:var(--teal);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.install-txt{flex:1;min-width:0;display:grid;gap:2px}
+.install-txt b{font:400 15px/1.2 var(--display);color:#004d42}
+.install-txt span{font:600 11px/1.35 var(--body);color:#4f6f69}
+.install-btn{flex:none;padding:9px 14px;border:0;border-radius:999px;background:#1fae95;color:#fff;font:800 13px/1 var(--body);box-shadow:0 3px 10px rgba(31,174,149,.35)}
+.install-btn:active{transform:scale(.94)}
+.install-x{flex:none;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#6b8b85;font:700 18px/1 var(--body)}
 .stage-card{position:relative;overflow:hidden;border-radius:28px;border:2px solid var(--pink-line);
   background:linear-gradient(180deg,#fff,#fff3f8 55%,#f4e9ff);box-shadow:0 10px 30px rgba(255,182,210,.3)}
 .stage-card::before{content:"";position:absolute;inset:0;opacity:.45;pointer-events:none;
@@ -340,6 +350,13 @@ canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-ac
         <div class="r2"><div class="k">별사탕</div><div class="v" id="stars">0</div></div>
         <div class="r3"><div class="k"><span>오늘 미션</span><span id="ms-num">0/3</span></div><div class="bar"><i id="ms-bar" style="transform:scaleX(0)"></i></div></div>
       </div>
+    </section>
+
+    <section class="install" id="install" aria-label="앱 설치" hidden>
+      <span class="install-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg></span>
+      <div class="install-txt"><b>홈 화면에 달빛 아케이드 추가</b><span id="install-sub">앱처럼 바로 열리고, 인터넷이 없어도 할 수 있어요.</span></div>
+      <button type="button" class="install-btn" id="install-btn">설치</button>
+      <button type="button" class="install-x" id="install-x" aria-label="설치 안내 닫기">×</button>
     </section>
 
     <section class="stage-card" aria-label="마스코트">
