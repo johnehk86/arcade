@@ -6,3 +6,12 @@ desktop.ini
 node_modules/
 *.log
 dist/
+
+# PWABuilder 패키지(서명 키 포함) - 절대 커밋 금지
+*Google Play package*/
+*.keystore
+*.jks
+signing-key-info.txt
+*.aab
+*.apk
+*Google Play package*.zip

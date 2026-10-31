@@ -7,7 +7,7 @@ var CACHE='arcade-'+VERSION;
 var FONT_CACHE='arcade-fonts';
 var SHELL=[
   './','index.html','core.js','pwa.js','manifest.webmanifest',
-  'g-jelly.js','g-runner.js','g-meteor.js','g-guard.js','g-candy.js','g-whack.js','g-bubble.js','g-lantern.js','g-prism.js','g-pond.js',
+  'g-jelly.js','g-runner.js','g-meteor.js','g-guard.js','g-candy.js','g-stars.js','g-whack.js','g-bubble.js','g-lantern.js','g-archery.js','g-prism.js','g-pond.js',
   'icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png'
 ];
 

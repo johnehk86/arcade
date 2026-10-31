@@ -16,7 +16,7 @@ sed "s/__VERSION__/$VERSION/" arcade/sw.js > dist/sw.js
   printf '%s\n' '<meta charset="utf-8">'
   printf '%s\n' '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
   printf '%s\n' '<meta name="theme-color" content="#fff6fb">'
-  printf '%s\n' '<meta name="description" content="손가락 하나로 즐기는 귀여운 원터치 게임 10종. 매일 바뀌는 오늘의 도전과 미션이 있어요.">'
+  printf '%s\n' '<meta name="description" content="손가락 하나로 즐기는 귀여운 원터치 게임 12종. 매일 바뀌는 오늘의 도전과 미션이 있어요.">'
   printf '%s\n' '<link rel="manifest" href="manifest.webmanifest">'
   printf '%s\n' '<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">'
   printf '%s\n' '<link rel="apple-touch-icon" href="icons/icon-180.png">'
@@ -38,6 +38,9 @@ cat > dist/_headers <<'EOF'
   Content-Type: application/manifest+json
 /*.js
   Content-Type: application/javascript; charset=utf-8
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
 EOF
 
 echo "built dist/ ($VERSION)"

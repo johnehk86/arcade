@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.johnehk86.moonarcade",
+        "sha256_cert_fingerprints": ["80:9C:4F:A5:32:B7:FF:F9:DB:99:1B:0F:45:4C:C2:D4:9C:5E:F0:AC:80:41:CE:AD:1F:5B:65:CA:75:D2:18:B8"]
+      }
+    }]
