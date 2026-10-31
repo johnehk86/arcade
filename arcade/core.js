@@ -100,7 +100,7 @@ function glow(rgb){
   }
   return glowCache[rgb];
 }
-var fx={parts:[],shardList:[],rings:[],texts:[],shakeA:0,flashA:0,flashC:'255,240,220',stop:0,pulseA:0,additive:true,font:'"Hahmlet","Noto Serif KR",serif'};
+var fx={parts:[],shardList:[],rings:[],texts:[],shakeA:0,flashA:0,flashC:'255,240,220',stop:0,pulseA:0,additive:true,font:'"Jua","Apple SD Gothic Neo",sans-serif'};
 fx.glow=glow;
 fx.reset=function(){ fx.parts.length=0; fx.shardList.length=0; fx.rings.length=0; fx.texts.length=0; fx.shakeA=0; fx.flashA=0; fx.stop=0; fx.pulseA=0; };
 fx.burst=function(x,y,n,rgb,speed,opt){
@@ -165,7 +165,7 @@ fx.draw=function(ctx){
     var tx=fx.texts[i]; if(tx.age<0) continue;
     var q=tx.age/tx.dur, sc=q<0.12?easeOutBack(q/0.12):1;
     ctx.globalAlpha=1-q*q;
-    ctx.font=tx.weight+' '+Math.round(tx.size*sc)+'px '+fx.font;
+    ctx.font=(tx.weight===700?'400':tx.weight)+' '+Math.round(tx.size*sc)+'px '+fx.font;
     var px=clamp(tx.x,70,W-70), py=tx.y-q*tx.rise;
     ctx.lineWidth=Math.max(3,tx.size*0.22); ctx.strokeStyle=tx.stroke; ctx.strokeText(tx.s,px,py);
     ctx.fillStyle=tx.c; ctx.fillText(tx.s,px,py);
@@ -335,6 +335,8 @@ function showOver(){
     b.textContent=String(s[1]); d.append(b,String(s[0])); st.append(d);
   });
   $('heal').textContent=res.line||'';
+  var gain=onRunEnd(id,daily,sc>0&&sc>prev), rw=$('reward');
+  rw.textContent='별사탕 +'+gain.earned+(gain.ready?' · 받을 미션 '+gain.ready+'개':''); rw.hidden=false;
   $('over').hidden=false;
   updateBest();
   renderResult(null,'pending');
@@ -509,42 +511,164 @@ function renderBoard(){
 function openBoard(){ $('board').hidden=false; paused=true; renderBoard(); }
 function closeBoard(){ $('board').hidden=true; paused=false; lastNow=performance.now(); }
 
+/* ---------- 성장: 별사탕, 레벨, 연속 출석, 일일 미션 (이 기기에 저장) ---------- */
+var MISSIONS=[
+  {id:'play3',ic:'3',name:'아무 게임 3판 하기',goal:3,reward:10,get:function(d){ return d.plays; }},
+  {id:'play6',ic:'6',name:'아무 게임 6판 하기',goal:6,reward:20,get:function(d){ return d.plays; }},
+  {id:'vary3',ic:'✦',name:'서로 다른 게임 3종 하기',goal:3,reward:15,get:function(d){ return d.games.length; }},
+  {id:'daily2',ic:'★',name:'오늘의 도전 2판 하기',goal:2,reward:10,get:function(d){ return d.dailyPlays; }},
+  {id:'best1',ic:'♛',name:'아무 게임에서 신기록 세우기',goal:1,reward:20,get:function(d){ return d.bests; }},
+  {id:'new1',ic:'♡',name:'처음 보는 게임 해 보기',goal:1,reward:15,get:function(d){ return d.newGames; }}
+];
+var meta=null;
+function loadMeta(){
+  var m=null; try{ m=JSON.parse(store.get('arc_meta','null')); }catch(e){}
+  m=m||{stars:0,xp:0,plays:0,bests:0,streak:0,lastDay:'',ever:[]};
+  if(!m.ever) m.ever=[];
+  var y=new Date(Date.now()+9*3600e3-86400e3).toISOString().slice(0,10).replace(/-/g,'');
+  var fresh=m.lastDay!==today;
+  if(fresh){ m.streak=m.lastDay===y?(m.streak||0)+1:1; m.lastDay=today; }
+  if(!m.day||m.day.key!==today){
+    var r=mulberry(seedFrom('missions-'+today)), pool=MISSIONS.slice(), picks=[];
+    while(picks.length<3){ picks.push(pool.splice(Math.floor(r()*pool.length),1)[0].id); }
+    m.day={key:today,plays:0,games:[],dailyPlays:0,bests:0,newGames:0,missions:picks,claimed:[]};
+  }
+  meta=m;
+  if(fresh){ meta.stars+=2; meta.xp+=2; saveMeta(); setTimeout(function(){ toast('출석 보상 별사탕 +2 · 연속 '+meta.streak+'일'); },700); }
+  else saveMeta();
+}
+function saveMeta(){ store.set('arc_meta',JSON.stringify(meta)); }
+function levelOf(xp){ var lv=1, need=20; while(xp>=need){ xp-=need; lv++; need=20+lv*10; } return {lv:lv,cur:xp,need:need}; }
+var TITLES=['새싹','솜사탕','젤리','별사탕','요정','별빛 요정','달빛 요정','은하수 요정'];
+function titleOf(lv){ return TITLES[Math.min(TITLES.length-1,Math.floor((lv-1)/3))]; }
+function missionDef(id){ for(var i=0;i<MISSIONS.length;i++) if(MISSIONS[i].id===id) return MISSIONS[i]; return null; }
+function onRunEnd(id,daily,isBest){
+  var d=meta.day, earned=1+(isBest?3:0);
+  d.plays++; meta.plays++;
+  if(d.games.indexOf(id)<0) d.games.push(id);
+  if(daily) d.dailyPlays++;
+  if(isBest){ d.bests++; meta.bests++; }
+  if(meta.ever.indexOf(id)<0){ meta.ever.push(id); d.newGames++; }
+  meta.stars+=earned; meta.xp+=earned;
+  saveMeta();
+  var ready=d.missions.filter(function(mid){ var m=missionDef(mid); return d.claimed.indexOf(mid)<0&&m.get(d)>=m.goal; }).length;
+  return {earned:earned,ready:ready};
+}
+function claimMission(mid){
+  var d=meta.day, m=missionDef(mid);
+  if(!m||d.claimed.indexOf(mid)>=0||m.get(d)<m.goal) return;
+  d.claimed.push(mid); meta.stars+=m.reward; meta.xp+=m.reward; saveMeta();
+  ensureAudio(); pluck(84,0.14); pluck(88,0.13,0.08); pluck(91,0.14,0.16); haptic(12);
+  toast('미션 완료! 별사탕 +'+m.reward);
+  renderMeta();
+}
+function toast(msg){
+  var t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent=msg;
+  document.body.append(t); setTimeout(function(){ t.remove(); },2700);
+}
+function renderMeta(){
+  if(!meta) return;
+  var L=levelOf(meta.xp), d=meta.day, title=titleOf(L.lv);
+  $('lv-label').textContent='LV. '+L.lv+' 스타 버니';
+  $('lv-tag').textContent=title;
+  $('mascot-name').textContent='LV. '+L.lv+' 스타 버니 루루';
+  $('fairy').textContent=title+' 등급';
+  $('streak').textContent='연속 출석 '+meta.streak+'일';
+  $('xp-num').textContent=L.cur+'/'+L.need;
+  $('xp-bar').style.transform='scaleX('+(L.cur/L.need)+')';
+  $('stars').textContent=fmt(meta.stars);
+  var done=d.claimed.length;
+  $('ms-num').textContent=done+'/3';
+  $('ms-bar').style.transform='scaleX('+(done/3)+')';
+  $('st-today').textContent=d.plays+'판';
+  $('st-bests').textContent=meta.bests+'개';
+  $('st-tried').textContent=meta.ever.length+'/'+A.games.length;
+  $('stage-line').textContent=d.plays===0?'오늘도 반짝, 첫 판을 시작해 볼까요?':d.plays<3?'좋아요! 몸이 풀리고 있어요.':'오늘 벌써 '+d.plays+'판! 아케이드의 전설이 되는 중이에요.';
+  var wrap=$('missions'); wrap.replaceChildren(); var readyCount=0;
+  d.missions.forEach(function(mid){
+    var m=missionDef(mid), cur=Math.min(m.goal,m.get(d)), claimed=d.claimed.indexOf(mid)>=0, ready=!claimed&&cur>=m.goal;
+    if(ready) readyCount++;
+    var row=document.createElement('div'); row.className='mission'+(claimed?' done':'');
+    var ic=document.createElement('span'); ic.className='ic'; ic.textContent=m.ic; ic.setAttribute('aria-hidden','true');
+    var mid2=document.createElement('div'); mid2.className='mid';
+    var b=document.createElement('b'); b.textContent=m.name;
+    var s=document.createElement('span'); s.textContent=cur+' / '+m.goal+' · 별사탕 '+m.reward;
+    var bar=document.createElement('div'); bar.className='bar'; var bi=document.createElement('i'); bi.style.transform='scaleX('+(cur/m.goal)+')'; bar.append(bi);
+    mid2.append(b,s,bar);
+    var btn=document.createElement('button'); btn.type='button';
+    btn.textContent=claimed?'완료':ready?'받기':'진행 중'; btn.disabled=!ready;
+    btn.addEventListener('click',function(){ claimMission(mid); });
+    row.append(ic,mid2,btn); wrap.append(row);
+  });
+  $('ms-dot').hidden=readyCount===0;
+}
+
 /* ---------- 허브 카드 ---------- */
 var cards=[];
+function pickToday(){ return A.games[seedFrom('pick-'+today)%A.games.length]; }
 function buildHub(){
   var wrap=$('cards'); wrap.replaceChildren(); cards=[];
-  A.games.forEach(function(g,i){
+  A.games.forEach(function(g){
     var p=g.palette;
     var a=document.createElement('a'); a.className='card'; a.href='#'+g.id;
-    a.style.setProperty('--c-bg',p.bg); a.style.setProperty('--c-surface',p.surface);
-    a.style.setProperty('--c-text',p.text); a.style.setProperty('--c-muted',p.muted); a.style.setProperty('--c-accent',p.accent);
-    if(p.light) a.classList.add('light');
+    a.style.setProperty('--c-bg',p.bg); a.style.setProperty('--c-accent',p.accent);
+    a.style.setProperty('--c-deep',p.accentDeep||p.text); a.style.setProperty('--c-line',p.line);
+    a.style.setProperty('--c-soft',p.surface2);
     var art=document.createElement('canvas'); art.className='card-art'; art.setAttribute('aria-hidden','true');
-    var no=document.createElement('span'); no.className='card-no'; no.textContent='No.'+String(i+1).padStart(2,'0');
     var body=document.createElement('div'); body.className='card-body';
     var k=document.createElement('span'); k.className='card-kicker'; k.textContent=g.kicker;
     var h=document.createElement('h3'); h.textContent=g.title;
     var bl=document.createElement('p'); bl.className='card-blurb'; bl.textContent=g.blurb;
-    var meta=document.createElement('div'); meta.className='card-meta';
-    var lead=document.createElement('span'); var mine=document.createElement('span'); mine.className='mine';
-    meta.append(lead,mine);
-    var play=document.createElement('span'); play.className='card-play'; play.textContent='플레이';
-    body.append(k,h,bl,meta);
-    a.append(art,no,play,body);
+    var mrow=document.createElement('div'); mrow.className='card-meta';
+    var lead=document.createElement('span'); var go=document.createElement('span'); go.className='go'; go.textContent='GO →';
+    mrow.append(lead,go);
+    body.append(k,h,bl,mrow);
+    a.append(art,body);
+    var nw=document.createElement('span'); nw.className='card-new'; nw.textContent='NEW'; a.append(nw);
     wrap.append(a);
-    cards.push({g:g,el:a,art:art,ctx:art.getContext('2d'),lead:lead,mine:mine,w:0,h:0});
+    cards.push({g:g,el:a,art:art,ctx:art.getContext('2d'),lead:lead,nw:nw,w:0,h:0});
   });
+  var rec=pickToday();
+  $('cta').href='#'+rec.id;
+  $('cta-title').textContent=rec.title;
+  $('cta-sub').textContent='오늘의 추천 게임 · '+rec.kicker;
+  $('games-count').textContent=A.games.length+' GAMES';
   renderCards();
 }
 function renderCards(){
   cards.forEach(function(c){
-    var b=boards[c.g.id], top=b&&b.daily[0];
-    c.lead.replaceChildren();
-    if(top){ var n=document.createElement('b'); n.textContent=top.name; c.lead.append('오늘 1위 ',n,' '+fmt(top.v)); }
-    else c.lead.textContent=cloudReady()?'오늘 1위 자리가 비어 있어요':'오늘의 도전 · 매일 새 패턴';
-    var m=b?myBest(c.g.id):localBest(c.g.id);
-    c.mine.textContent=m>0?'내 최고 '+fmt(m):'';
+    var b=boards[c.g.id], top=b&&b.daily[0], m=myBest(c.g.id);
+    c.lead.textContent=m>0?'내 최고 '+fmt(m):top?'1위 '+fmt(top.v):'첫 기록 도전!';
+    c.nw.hidden=!!meta&&meta.ever.indexOf(c.g.id)>=0;
   });
+  renderRanks();
+  renderMeta();
+}
+function renderRanks(){
+  var wrap=$('ranks'); if(!wrap) return; wrap.replaceChildren();
+  var bestGap=null;
+  A.games.forEach(function(g){
+    var b=boards[g.id], list=b?b.daily:[], top=list[0], myIdx=-1;
+    for(var i=0;i<list.length;i++){ if(list[i].id===cloud.uid){ myIdx=i; break; } }
+    var a=document.createElement('a'); a.className='rk'; a.href='#'+g.id;
+    var gi=document.createElement('span'); gi.className='gi'; gi.style.background=g.palette.accent; gi.textContent=g.title.slice(0,1); gi.setAttribute('aria-hidden','true');
+    var nm=document.createElement('span'); nm.className='nm';
+    var bn=document.createElement('b'); bn.textContent=top?top.name:'아직 1위가 없어요';
+    var sn=document.createElement('span'); sn.textContent=g.title+(myIdx>=0?' · 나는 '+(myIdx+1)+'위':'');
+    nm.append(bn,sn);
+    var sc=document.createElement('span'); sc.className='sc'; sc.textContent=top?fmt(top.v):'-';
+    if(myIdx>0){
+      var gap=list[myIdx-1].v-list[myIdx].v+1, sm=document.createElement('small');
+      sm.textContent='+'+fmt(gap)+'점이면 '+myIdx+'위'; sc.append(sm);
+      if(!bestGap||gap<bestGap.gap) bestGap={gap:gap,title:g.title,rank:myIdx};
+    }
+    a.append(gi,nm,sc); wrap.append(a);
+  });
+  var tip=document.createElement('p'); tip.className='tip';
+  if(bestGap){ tip.append(bestGap.title+'에서 '); var tb=document.createElement('b'); tb.textContent=fmt(bestGap.gap)+'점'; tip.append(tb,'만 더 모으면 '+bestGap.rank+'위!'); }
+  else tip.textContent=cloudReady()?'오늘의 도전 기록이 랭킹에 바로 올라가요.':'랭킹에 연결되면 오늘의 1위가 여기에 나와요.';
+  wrap.append(tip);
+  var on=$('online'); if(on) on.hidden=!cloudReady();
 }
 function sizeCards(){
   var dpr=Math.min(window.devicePixelRatio||1,2);
@@ -555,15 +679,6 @@ function sizeCards(){
     c.art.width=Math.round(r.width*dpr); c.art.height=Math.round(r.height*dpr);
     c.ctx.setTransform(dpr,0,0,dpr,0,0);
   });
-}
-function grain(){
-  try{
-    var c=document.createElement('canvas'); c.width=c.height=160;
-    var g=c.getContext('2d'), d=g.createImageData(160,160);
-    for(var i=0;i<d.data.length;i+=4){ var v=Math.random()*255|0; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=14; }
-    g.putImageData(d,0,0);
-    document.documentElement.style.setProperty('--grain','url('+c.toDataURL()+')');
-  }catch(e){}
 }
 
 /* ---------- 루프 ---------- */
@@ -648,7 +763,7 @@ function routeHash(){
 /* ---------- 시작 ---------- */
 A.boot=function(){
   stage=$('stage'); canvas=$('c'); ctx=canvas.getContext('2d');
-  grain();
+  loadMeta();
   initCloud();
   buildHub();
   $('nick').value=nick;
@@ -676,18 +791,27 @@ A.boot=function(){
     $('over').hidden=true; $('menu').hidden=false;
     setState('menu'); cur.start(api); updateMenuInfo(); renderRival(false);
   });
-  function syncSound(){ $('btn-sound').classList.toggle('muted',au.muted); }
-  $('btn-sound').addEventListener('click',function(){
+  function syncSound(){ $('btn-sound').classList.toggle('muted',au.muted); $('hub-sound').classList.toggle('muted',au.muted); }
+  function toggleSound(){
     au.muted=!au.muted; store.set('arc_mute',au.muted?'1':'0'); syncSound(); ensureAudio();
     if(!au.muted) pluck(76,0.14);
+  }
+  $('btn-sound').addEventListener('click',toggleSound);
+  $('hub-sound').addEventListener('click',toggleSound);
+  var dockBtns=document.querySelectorAll('.dock button');
+  Array.prototype.forEach.call(dockBtns,function(btn){
+    btn.addEventListener('click',function(){
+      var go=btn.dataset.go, hub=$('hub');
+      Array.prototype.forEach.call(dockBtns,function(x){ x.setAttribute('aria-current',String(x===btn)); });
+      hub.scrollTo({top:go==='top'?0:Math.max(0,$(go).offsetTop-70),behavior:'smooth'});
+    });
   });
   syncSound();
-  var d=$('hub-date'); if(d) d.textContent=today.slice(0,4)+'. '+today.slice(4,6)+'. '+today.slice(6);
   bindInput();
   window.addEventListener('resize',resize);
   window.addEventListener('hashchange',routeHash);
   document.addEventListener('visibilitychange',function(){ lastNow=performance.now(); });
-  try{ document.fonts.load('700 24px "Hahmlet"'); document.fonts.load('600 24px "Unbounded"'); }catch(e){}
+  try{ document.fonts.load('24px "Jua"'); }catch(e){}
   routeHash();
   requestAnimationFrame(function(){ sizeCards(); });
   lastNow=performance.now();
