@@ -5,3 +5,4 @@ desktop.ini
 .idea/
 node_modules/
 *.log
+dist/
