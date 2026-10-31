@@ -10,9 +10,10 @@ var COLORS=[
   {fill:'#56dbc1',deep:'#1fae95',rgb:'31,174,149',sym:'flower'},
   {fill:'#ffd66b',deep:'#e0a92a',rgb:'224,169,42',sym:'diamond'},
   {fill:'#8fd3ff',deep:'#3d9be9',rgb:'61,155,233',sym:'drop'},
+  {fill:'#ffb38a',deep:'#e5794a',rgb:'229,121,74',sym:'moon'},
   {fill:'#d9cfe0',deep:'#a497ad',rgb:'164,151,173',sym:null}   // 끝날 때 쓰는 회색
 ];
-var GRAY=5, PENT=[0,2,4,7,9];
+var GRAY=6, PENT=[0,2,4,7,9];
 var S=null;
 
 /* ---------- 방울 스프라이트: 색마다 한 번만 그려 둔다 ---------- */
@@ -23,6 +24,7 @@ function symbol(g,s,cx,cy,r){
   else if(s==='star'){ for(var i=0;i<10;i++){ var a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.45:r; g.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr); } g.closePath(); }
   else if(s==='flower'){ for(var k=0;k<5;k++){ var b=-Math.PI/2+k*Math.PI*2/5, px=cx+Math.cos(b)*r*0.55, py=cy+Math.sin(b)*r*0.55; g.moveTo(px+r*0.42,py); g.arc(px,py,r*0.42,0,Math.PI*2); } }
   else if(s==='diamond'){ g.moveTo(cx,cy-r); g.lineTo(cx+r*0.75,cy); g.lineTo(cx,cy+r); g.lineTo(cx-r*0.75,cy); g.closePath(); }
+  else if(s==='moon'){ g.arc(cx,cy,r*0.9,Math.PI*0.4,Math.PI*1.6,false); g.arc(cx+r*0.38,cy,r*0.72,Math.PI*1.45,Math.PI*0.55,true); g.closePath(); }
   else if(s==='drop'){ g.moveTo(cx,cy-r); g.bezierCurveTo(cx+r*0.9,cy,cx+r*0.7,cy+r*0.95,cx,cy+r*0.9); g.bezierCurveTo(cx-r*0.7,cy+r*0.95,cx-r*0.9,cy,cx,cy-r); }
   g.fill();
 }
@@ -185,7 +187,19 @@ function popNote(api,i){
 /* ---------- 발사와 판정 ---------- */
 function origin(api){ return {x:W/2,y:api.H-84}; }
 function dangerY(api){ return api.H-120; }
-function missLimit(api){ var s=api.score; return s<3000?6:s<8000?5:4; }
+// 빗나간 몇 발마다 새 줄이 내려오는지: 점수와 쏜 수가 늘수록 줄어든다(최소 3발)
+function missLimit(api){ var s=api.score; return Math.max(3,(s<3000?6:s<8000?5:4)-Math.floor(S.shots/45)); }
+// 60초가 지나면 쏘지 않아도 일정 시간마다 줄이 내려온다
+function rowEvery(){ return S.playT<60?0:Math.max(7,18-(S.playT-60)*0.06); }
+function unlockColors(api){
+  var want=(api.score>=6000||S.shots>=70)?6:(api.score>=1500||S.shots>=25)?5:4;
+  if(want>S.colorsN){
+    S.colorsN=want;
+    api.fx.text(W/2,api.H*0.44,want===5?'새 색깔 등장 · 하늘 방울!':'새 색깔 등장 · 노을 방울!',COLORS[want-1].deep,24,1.6,{rise:14,stroke:'rgba(255,255,255,.95)'});
+    api.fx.ring(W/2,api.H*0.44,W*0.5,COLORS[want-1].rgb,1,2,0.5);
+    api.sfx.pluck(79,0.12); api.sfx.pluck(84,0.12,0.1); api.sfx.pluck(88,0.13,0.2);
+  }
+}
 
 function fire(api){
   if(S.shot||S.over) return;
@@ -254,7 +268,7 @@ function resolve(api,r0,c0){
     if(play){ S.combo=0; S.misses++; }
   }
   trimRows();
-  if(api.state==='play'&&api.score>=1500) S.colorsN=5;
+  if(api.state==='play') unlockColors(api);
   // 판을 모두 비우면 보너스와 함께 새 판
   if(count()===0){
     if(play){
@@ -296,8 +310,9 @@ function gameOver(api){
 function updateHud(api){
   if(api.state!=='play') return;
   api.setSub(S.combo>=2?'콤보 ×'+Math.min(5,S.combo):'');
-  var lim=missLimit(api), left=lim-S.misses;
-  api.setMeter(left/lim,'새 줄까지 '+left+'발',left<=1);
+  var lim=missLimit(api), left=lim-S.misses, ev=rowEvery();
+  if(ev>0){ var sec=Math.max(0,ev-S.rowT); api.setMeter(Math.min(left/lim,sec/ev),'새 줄까지 '+left+'발 · '+sec.toFixed(0)+'초',left<=1||sec<3); }
+  else api.setMeter(left/lim,'새 줄까지 '+left+'발',left<=1);
 }
 function computeGuide(api){
   var o=origin(api), x=o.x, y=o.y, vx=Math.cos(S.aim), vy=Math.sin(S.aim), pts=[], bounces=0;
@@ -339,7 +354,7 @@ Arcade.register({
 
   start:function(api){
     S={rows:[],par:0,offY:0,shot:null,cur:0,next:0,aim:-Math.PI/2,aiming:false,kb:false,guide:null,
-      pops:[],falls:[],combo:0,maxCombo:0,popped:0,dropped:0,misses:0,shots:0,colorsN:4,over:false,attractAt:api.t+0.6,launchT:-9};
+      pops:[],falls:[],combo:0,maxCombo:0,popped:0,dropped:0,misses:0,shots:0,colorsN:4,over:false,attractAt:api.t+0.6,launchT:-9,playT:0,rowT:0,hudT:0};
     initBoard(api,6);
     S.cur=pickColor(api); S.next=pickColor(api);
     if(api.state==='play'){ api.setSub(''); updateHud(api); }
@@ -348,6 +363,18 @@ Arcade.register({
     var fx=api.fx, k;
     S.offY=Math.min(0,S.offY+dt*RH*5);
     if(api.state==='menu'||api.state==='over') attract(api);
+    if(api.state==='play'&&!S.over){
+      S.playT+=dt;
+      var ev=rowEvery();
+      if(ev>0){
+        S.rowT+=dt;
+        if(S.rowT>=ev&&!S.shot){
+          S.rowT=0; pushRow(api);
+          var ly0=lowestY(); if(ly0>=0&&ly0+R>dangerY(api)) gameOver(api);
+        }
+        S.hudT-=dt; if(S.hudT<=0&&!S.over){ S.hudT=0.25; updateHud(api); }
+      }
+    }
     // 날아가는 방울
     var sh=S.shot;
     if(sh){

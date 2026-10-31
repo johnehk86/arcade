@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "달빛 아케이드",
+  "short_name": "달빛 아케이드",
+  "description": "손가락 하나로 즐기는 귀여운 원터치 게임 10종. 매일 바뀌는 오늘의 도전과 미션이 있어요.",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff6fb",
+  "theme_color": "#fff6fb",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

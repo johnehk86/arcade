@@ -40,16 +40,17 @@ function fresh(api){
   S={ship:{x:W/2,y:api.H-110,px:W/2,bank:0,dead:false,inv:0},
     bullets:[],enemies:[],drops:[],warns:[],
     fireAcc:0,power:1,maxPower:1,combo:0,maxCombo:0,lastKill:-9,mult:1,od:0,odNext:25,
-    shields:3,spawnAcc:0,ambAcc:0,elapsed:0,kills:0,cometAt:14,dartAcc:0,
+    shields:3,spawnAcc:0,ambAcc:0,elapsed:0,kills:0,cometAt:14,dartAcc:0,stage:1,formAt:60,
     lastX:0,lastY:0,tickAt:0,chimeAt:0,meterAcc:0,muzzle:0,
     stars:(S&&S.stars)||mkStars()};
 }
-function addRock(size,x,y,vx,vy,hue){
+function addRock(size,x,y,vx,vy,hue,hpMul){
   var d=SIZES[size];
   if(hue==null) hue=CANDY[Math.floor(Math.random()*CANDY.length)];
-  S.enemies.push({kind:'rock',size:size,x:x,y:y,vx:vx,vy:vy,r:d.r,hp:d.hp,rot:Math.random()*6.28,vr:(Math.random()-.5)*2.2,
+  S.enemies.push({kind:'rock',size:size,x:x,y:y,vx:vx,vy:vy,r:d.r,hp:Math.max(1,Math.round(d.hp*(hpMul||1))),rot:Math.random()*6.28,vr:(Math.random()-.5)*2.2,
     verts:makeVerts(d.verts,0.3),hue:hue+(Math.random()-.5)*8,flash:0});
 }
+function hpScale(){ return S?Math.min(3,1+Math.max(0,S.elapsed-30)/60):1; }
 function updSub(api){ api.setSub(S.combo>=2?'콤보 '+S.combo+' · ×'+S.mult:''); }
 
 /* ---------- 쏘기 ---------- */
@@ -97,7 +98,7 @@ function kill(e,api,scored){
   if(e.kind==='rock'&&e.size>1){
     for(var k=0;k<2;k++){
       var dir=k?1:-1;
-      addRock(e.size-1,e.x+dir*e.r*0.45,e.y,e.vx*0.5+dir*(50+rnd()*45),Math.max(30,e.vy*0.8)+rnd()*20,e.hue);
+      addRock(e.size-1,e.x+dir*e.r*0.45,e.y,e.vx*0.5+dir*(50+rnd()*45),Math.max(30,e.vy*0.8)+rnd()*20,e.hue,hpScale());
     }
   }
   if(!play||!scored) return;
@@ -178,17 +179,40 @@ function update(dt,api){
   // 생성
   if(play){
     S.elapsed+=dt;
-    var el=S.elapsed, interval=Math.max(0.32,1.25-el*0.011);
+    var el=S.elapsed, interval=Math.max(0.24,1.25-el*0.011-Math.max(0,el-60)*0.004);
+    // 30초마다 단계가 오른다
+    var stage=1+Math.floor(el/30);
+    if(stage>S.stage){
+      S.stage=stage;
+      api.fx.text(W/2,H*0.42,'단계 '+stage+' · 더 빨라져요!','#7b61e8',24,1.6,{rise:14,stroke:'rgba(255,255,255,.95)'});
+      api.fx.ring(W/2,H*0.42,W*0.5,'172,151,254',1,2,0.5);
+      api.sfx.pluck(79,0.12); api.sfx.pluck(84,0.12,0.1); api.sfx.pluck(88,0.13,0.2);
+    }
     S.spawnAcc+=dt;
     if(S.spawnAcc>=interval){
       S.spawnAcc-=interval;
-      var r=api.rng(), size=r<0.22+Math.min(0.2,el*0.003)?3:r<0.62?2:1;
-      var spd=Math.min(150,45+el*0.9)*(1+(3-size)*0.15);
-      addRock(size,24+api.rng()*(W-48),-40,(api.rng()-.5)*40,spd*(0.8+api.rng()*0.4));
+      var r=api.rng(), size=r<0.22+Math.min(0.28,el*0.003)?3:r<0.62?2:1;
+      var spd=Math.min(230,45+el*1.1)*(1+(3-size)*0.15);
+      // 45초 뒤부터는 운석이 2–3개씩 몰려오기도 한다
+      var group=el>45&&api.rng()<Math.min(0.35,0.12+(el-45)*0.003)?2+Math.floor(api.rng()*2):1;
+      var gx=24+api.rng()*(W-48);
+      for(var gi=0;gi<group;gi++){
+        var gsz=group>1?Math.max(1,size-1):size;
+        addRock(gsz,clamp(gx+(gi-(group-1)/2)*46,20,W-20),-40-gi*26,(api.rng()-.5)*40,spd*(0.8+api.rng()*0.4),null,hpScale());
+      }
     }
-    if(el>20){
+    // 60초 뒤부터는 작은 운석이 줄이나 V자로 날아온다
+    if(el>=S.formAt){
+      S.formAt=el+Math.max(5,11-(el-60)*0.04);
+      var vee=api.rng()<0.5, n=5+Math.min(3,Math.floor((el-60)/40)), cx=60+api.rng()*(W-120), fs=Math.min(200,90+el*0.6);
+      for(var fi=0;fi<n;fi++){
+        var off=fi-(n-1)/2;
+        addRock(1,clamp(cx+off*30,16,W-16),-30-(vee?Math.abs(off)*26:0),0,fs,null,hpScale());
+      }
+    }
+    if(el>12){
       S.dartAcc+=dt;
-      if(S.dartAcc>=Math.max(1.4,4.5-(el-20)*0.03)){ S.dartAcc=0; S.warns.push({x:24+api.rng()*(W-48),t:0.6}); }
+      if(S.dartAcc>=Math.max(0.8,4.2-(el-12)*0.035)){ S.dartAcc=0; S.warns.push({x:24+api.rng()*(W-48),t:el>60?0.45:0.6}); }
     }
     if(el>=S.cometAt){
       S.cometAt=el+16+api.rng()*10;
@@ -219,8 +243,8 @@ function update(dt,api){
     var w=S.warns[i]; w.t-=dt;
     if(w.t<=0){
       S.warns.splice(i,1);
-      var vy=280+Math.min(120,S.elapsed);
-      S.enemies.push({kind:'dart',x:w.x,y:-20,vx:clamp((sh.x-w.x)*vy/(sh.y+20),-130,130),vy:vy,r:11,hp:2,rot:0,vr:0,flash:0});
+      var vy=280+Math.min(220,S.elapsed*1.5), vmax=130+Math.min(120,S.elapsed);
+      S.enemies.push({kind:'dart',x:w.x,y:-20,vx:clamp((sh.x-w.x)*vy/(sh.y+20),-vmax,vmax),vy:vy,r:11,hp:2,rot:0,vr:0,flash:0});
       if(play) api.sfx.tone(520,0.18,'triangle',0.04,{slide:260,wet:false});
     }
   }

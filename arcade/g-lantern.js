@@ -18,7 +18,9 @@ var VARIANT=['red','amber','lav','peach'];
 /* 보통 등불은 흔들림 위상(ph)으로 색만 고른다. 난수를 더 쓰지 않으니 오늘의 도전 패턴은 그대로다. */
 function look(kind,ph){ return (kind==='red'||kind==='amber')?KINDS[VARIANT[Math.floor(ph*7)%4]]:KINDS[kind]; }
 
-var L=[], shots=[], remaining=60, elapsed=0, spawnAcc=0, combo=0, maxCombo=0;
+var L=[], shots=[], remaining=60, elapsed=0, spawnAcc=0, combo=0, maxCombo=0, step=0;
+// 후반 난이도: 30초부터 0에서 시작해 60초에 1, 그 뒤로 1.5까지 오른다
+function hard(){ return Math.min(1.5,Math.max(0,elapsed-30)/30); }
 var nShots=0, nHits=0, nCrits=0, nPop=0, cross={x:W/2,y:300,age:9}, ended=false, attractAcc=0;
 
 /* 배경 소품: 0..1 정규화 좌표로 한 번만 만든다 */
@@ -44,12 +46,13 @@ function spawn(rnd,api,attract){
   if(attract) kind=roll<0.5?'red':'amber';
   else if(roll<0.04) kind='gold';
   else if(roll<0.095) kind='time';
-  else if(elapsed>8&&roll<0.095+0.055+k*0.03) kind='ink';
+  else if(elapsed>8&&roll<0.095+0.055+k*0.03+(attract?0:0.035*hard())) kind='ink';
   else kind=rnd()<0.5?'red':'amber';
-  var r=kind==='gold'?14:kind==='ink'?22:18+rnd()*12;
-  var vy=(60+70*k)*(0.8+rnd()*0.5)*(kind==='gold'?1.9:1)*(attract?0.55:1);
+  var hd=attract?0:hard();
+  var r=kind==='gold'?14:kind==='ink'?22:Math.max(12,18-5*hd)+rnd()*(12-4*hd);
+  var vy=(60+70*k+55*hd)*(0.8+rnd()*0.5)*(kind==='gold'?1.9:1)*(attract?0.55:1);
   L.push({x:r+14+rnd()*(W-2*r-28),y:H+r+20,r:r,vy:vy,kind:kind,sf:0.8+rnd()*1.2,ph:rnd()*6.28,
-    amp:kind==='gold'?38:6+rnd()*10,born:api.t});
+    amp:kind==='gold'?38:6+10*hd+rnd()*(10+8*hd),born:api.t});
   if(L.length>40) L.shift();
 }
 
@@ -257,7 +260,8 @@ function shoot(x,y,api){
     if(lt.kind==='gold'&&crit) base=800;
     var pts=base*mult();
     total+=pts;
-    remaining=Math.min(99,remaining+(crit?0.4:0.15)+(lt.kind==='time'?3:0));
+    // 시간 보너스는 시간이 갈수록 조금씩 줄어든다
+    remaining=Math.min(99,remaining+(crit?0.4:0.15)*Math.max(0.35,1-elapsed/90)+(lt.kind==='time'?3*Math.max(0.5,1-elapsed/120):0));
     fx.shards(px,py,crit?20:13,K.shard,crit?260:200,6,{gravity:240,life:1.1});
     fx.shards(px,py,5,K.edge,160,4,{gravity:200});
     fx.burst(px,py,crit?26:16,K.glow,crit?170:130,{gravity:-70,life:1.2,size:[4,11],drag:1.8});
@@ -305,7 +309,7 @@ Arcade.register({
   endDelay:1200,
 
   start:function(api){
-    L.length=0; shots.length=0; remaining=60; elapsed=0; spawnAcc=0.4; combo=0; maxCombo=0;
+    L.length=0; shots.length=0; remaining=60; elapsed=0; spawnAcc=0.4; combo=0; maxCombo=0; step=0;
     nShots=0; nHits=0; nCrits=0; nPop=0; ended=false; cross.age=9; attractAcc=0;
     if(api.state==='play'){
       api.setMeter(1,'남은 시간 60.0초',false); sub(api);
@@ -318,7 +322,13 @@ Arcade.register({
     var t=api.t, H=api.H;
     if(api.state==='play'){
       elapsed+=dt; remaining-=dt;
-      var k=Math.min(1,elapsed/60), iv=0.85-0.47*k;
+      var k=Math.min(1,elapsed/60), iv=Math.max(0.28,0.85-0.47*k-0.12*hard());
+      if(step<2&&elapsed>=(step+1)*20){
+        step++;
+        api.fx.text(W/2,H*0.42,step===1?'등불이 빨라져요!':'마지막 고비 · 더 작고 더 빠르게!','#a3365d',24,1.6,{rise:14,stroke:'rgba(255,255,255,.95)'});
+        api.fx.ring(W/2,H*0.42,W*0.5,'255,126,166',1,2,0.5);
+        api.sfx.pluck(79,0.12); api.sfx.pluck(84,0.12,0.1); api.sfx.pluck(88,0.13,0.2);
+      }
       spawnAcc-=dt;
       while(spawnAcc<=0){ spawn(api.rng,api,false); spawnAcc+=iv*(0.75+api.rng()*0.5); }
       if(remaining<=0&&!ended){
