@@ -143,7 +143,9 @@ function startWave(api,c,r,silent){
     set=flood(c,r);
     if(set.length<2){
       if(silent) return;
-      cell.wob=1; S.rem=Math.max(0,S.rem-0.5); S.combo=0; api.setSub('');
+      cell.wob=1;
+      if(api.t<(S.graceUntil||0)) return;
+      S.rem=Math.max(0,S.rem-0.5); S.combo=0; api.setSub('');
       api.sfx.tone(240,0.18,'sine',0.14,{slide:170}); api.haptic(12);
       fx.text(px,py-L.cs*0.6,'-0.5초','#887176',16,0.8,{stroke:'rgba(255,255,255,.9)'});
       return;
@@ -250,6 +252,16 @@ Arcade.register({
     for(c=0;c<COLS;c++){ S.g.push([]); for(var r=0;r<ROWS;r++){ var n=newCandy(c,r); n.fy=r-ROWS-1+r*0.04; S.g[c].push(n); } }
     if(!hasMove()) S.g[1][ROWS-1].k=S.g[0][ROWS-1].k;
     if(api.state==='play'){ api.setSub(''); api.setMeter(1,'남은 시간 60.0초',false); }
+  },
+  reviveText:'15초를 더 받고 이어서 터뜨려요',
+  revive:function(api){
+    // 점수와 판은 그대로, 시간만 15초 더
+    S.rem=15; S.lastTick=0; S.combo=0; S.lastPop=-9; S.graceUntil=api.t+1;
+    if(!S.wave&&!hasMove()){ var a=S.g[0][ROWS-1], b=S.g[1][ROWS-1]; if(a&&b&&a.k<5) b.k=a.k; }
+    api.setSub(''); api.setMeter(S.rem/60,'남은 시간 '+S.rem.toFixed(1)+'초',false);
+    api.fx.text(W/2,api.H*0.34,'이어서 GO!','#7b61e8',30,1.2,{stroke:'rgba(255,255,255,.95)',rise:16});
+    api.fx.ring(W/2,api.H*0.5,W*0.7,'172,151,254',1,3,0.6);
+    var sf=api.sfx; [0,4,7,12].forEach(function(k,j){ sf.pluck(72+k,0.13,j*0.06); });
   },
   update:function(dt,api){
     var t=api.t, c, r, n;

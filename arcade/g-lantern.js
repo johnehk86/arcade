@@ -21,7 +21,7 @@ function look(kind,ph){ return (kind==='red'||kind==='amber')?KINDS[VARIANT[Math
 var L=[], shots=[], remaining=60, elapsed=0, spawnAcc=0, combo=0, maxCombo=0, step=0;
 // 후반 난이도: 30초부터 0에서 시작해 60초에 1, 그 뒤로 1.5까지 오른다
 function hard(){ return Math.min(1.5,Math.max(0,elapsed-30)/30); }
-var nShots=0, nHits=0, nCrits=0, nPop=0, cross={x:W/2,y:300,age:9}, ended=false, attractAcc=0;
+var nShots=0, nHits=0, nCrits=0, nPop=0, cross={x:W/2,y:300,age:9}, ended=false, attractAcc=0, graceUntil=0;
 
 /* 배경 소품: 0..1 정규화 좌표로 한 번만 만든다 */
 var stars=[], roofs=[], wins=[];
@@ -231,7 +231,7 @@ function shoot(x,y,api){
     if(d<l.r+2) hit.push({l:l,d:d});
   }
   if(!hit.length){
-    combo=0; remaining=Math.max(0,remaining-1); sub(api);
+    combo=0; if(t>=graceUntil) remaining=Math.max(0,remaining-1); sub(api);
     sfx.tone(150,0.24,'sine',0.2,{slide:80,wet:false}); sfx.noise(0.1,0.08,{freq:420});
     fx.text(x,y-18,'빗나감 −1초','#887176',15,0.7,{rise:18,stroke:'rgba(255,255,255,.9)'});
     api.haptic(20);
@@ -243,7 +243,7 @@ function shoot(x,y,api){
     var h=hit[j], lt=h.l, px=lx(lt,t), py=lt.y, K=look(lt.kind,lt.ph);
     var idx=L.indexOf(lt); if(idx>=0) L.splice(idx,1);
     if(lt.kind==='ink'){
-      combo=0; remaining=Math.max(0,remaining-5); sub(api);
+      combo=0; if(t>=graceUntil) remaining=Math.max(0,remaining-5); sub(api);
       fx.shards(px,py,22,'#7b7290',240,7,{gravity:300,life:1.1});
       fx.shards(px,py,8,'#a99fbf',180,5,{gravity:260});
       fx.ring(px,py,lt.r*3,'123,114,144',0.6,3,0.6);
@@ -310,7 +310,7 @@ Arcade.register({
 
   start:function(api){
     L.length=0; shots.length=0; remaining=60; elapsed=0; spawnAcc=0.4; combo=0; maxCombo=0; step=0;
-    nShots=0; nHits=0; nCrits=0; nPop=0; ended=false; cross.age=9; attractAcc=0;
+    nShots=0; nHits=0; nCrits=0; nPop=0; ended=false; cross.age=9; attractAcc=0; graceUntil=0;
     if(api.state==='play'){
       api.setMeter(1,'남은 시간 60.0초',false); sub(api);
     } else {
@@ -318,6 +318,16 @@ Arcade.register({
     }
   },
 
+  reviveText:'15초를 더 받고 이어서 쏴요',
+  revive:function(api){
+    // 점수는 그대로, 시간만 15초 더. 먹구름은 치우고 잠깐 벌칙을 쉰다
+    ended=false; remaining=15; combo=0; graceUntil=api.t+1; spawnAcc=0.5;
+    for(var i=L.length-1;i>=0;i--) if(L[i].kind==='ink') L.splice(i,1);
+    sub(api); api.setMeter(remaining/60,'남은 시간 '+remaining.toFixed(1)+'초',false);
+    api.fx.text(W/2,api.H*0.42,'이어서 GO!','#a3365d',30,1.2,{rise:14,stroke:'rgba(255,255,255,.95)'});
+    api.fx.ring(W/2,api.H*0.42,W*0.6,'255,126,166',1,3,0.6);
+    var sf=api.sfx; [0,4,7,12].forEach(function(n,j){ sf.pluck(72+n,0.13,j*0.06); });
+  },
   update:function(dt,api){
     var t=api.t, H=api.H;
     if(api.state==='play'){

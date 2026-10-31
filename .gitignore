@@ -15,3 +15,5 @@ signing-key-info.txt
 *.aab
 *.apk
 *Google Play package*.zip
+test-build/
+play-upload/

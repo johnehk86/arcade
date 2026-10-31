@@ -1,0 +1,8 @@
+{
+  "appId": "com.johnehk86.moonarcade",
+  "appName": "달빛 아케이드",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#fff6fb"
+  }
+}

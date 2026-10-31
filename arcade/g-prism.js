@@ -484,6 +484,27 @@ A.register({
     if(api.state==='play'){ newState(api); api.setMeter(null); sub(api); }
     else newDemo(api);
   },
+  reviveText:'아래쪽 블록 3줄을 광선으로 지우고 이어서 해요',
+  // 이어하기: 아래 3줄을 점수 없이 광선으로 지우고, 구슬을 발사대로 모아 조준 상태로 되돌린다
+  revive:function(api){
+    var R=rowsOf(api), fx=api.fx, i, b, r;
+    for(i=s.blocks.length-1;i>=0;i--){
+      b=s.blocks[i];
+      if(b.r>=R-3){
+        fx.shards(cx(b.c),cy(b.r),6,b.bomb?BOMB:b.col.c,180,5);
+        fx.burst(cx(b.c),cy(b.r),6,b.bomb?BOMB_RGB:b.col.rgb,130,{size:[4,9],life:0.5});
+        s.blocks.splice(i,1);
+      }
+    }
+    for(r=R-3;r<R;r++) s.beams.push({c:-1,r:r,a:1});
+    rebuildGrid();
+    s.phase='aim'; s.flying.length=0; s.toLaunch=0; s.bombs.length=0; s.firstLand=null;
+    s.volleyT=0; s.speedMul=1; s.ff=false; s.chain=0; s.aiming=false; s.showAim=false;
+    sub(api);
+    fx.text(W/2,api.H*0.42,'이어서 GO!',PINK,30,1.3,TXT);
+    fx.flash(0.4,'255,246,251'); fx.shake(3);
+    A.sfx.pluck(76,0.15); A.sfx.pluck(81,0.15,0.1); A.sfx.pluck(88,0.16,0.2);
+  },
   update:function(dt,api){
     if(!s) return;
     var i;

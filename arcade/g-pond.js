@@ -188,6 +188,18 @@ Arcade.register({
       seq:{n:0,nextHit:api.t+approachFor(0)+0.7,lx:W/2,ly:api.H*0.55,half:false}};
     if(api.state==='play'){ api.setLives(3,3); updateSub(api); }
   },
+  reviveText:'꽃잎 2장을 되찾고 이어서 연주해요',
+  // 이어하기: 화면의 물결은 모두 가라앉힌 채로 두고, 다음 물결을 1.2초 뒤로 미뤄 박자에 다시 들어가게 한다
+  revive:function(api){
+    var k;
+    for(k=0;k<S.notes.length;k++){ if(!S.notes[k].res){ S.notes[k].res='sink'; S.notes[k].resT=api.t; } }
+    S.lives=2; S.combo=0; S.fever=0;
+    S.seq.nextHit=api.t+approachFor(S.seq.n)+1.2; S.seq.half=false;
+    api.setLives(2,3); updateSub(api);
+    api.fx.text(W/2,api.H*0.42,'이어서 GO!','#ff5f92',28,1.3,{rise:16,stroke:TXT.stroke});
+    api.fx.ring(W/2,api.H*0.5,W*0.7,'255,126,166',1.4,2,0.4);
+    api.sfx.pluck(72,0.16); api.sfx.pluck(76,0.15,0.1); api.sfx.pluck(79,0.16,0.2); api.sfx.pluck(84,0.17,0.3);
+  },
   update:function(dt,api){
     var t=api.t, k;
     if(api.state==='play'){

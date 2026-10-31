@@ -314,6 +314,7 @@ Arcade.register({
   how:'화면을 누르고 있으면 그쪽으로 자동 사격 · 별빛 게이지가 차면 루루를 톡(또는 두 번 탭) · 방향키+스페이스도 돼요',
   lifeIcon:'shield',
   endDelay:1400,
+  reviveText:'방패 3개를 돌려받고, 악몽을 밀어낸 뒤 루루를 다시 지켜요',
   palette:{bg:'#f1e8ff',surface:'#ffffff',surface2:'#f3ecff',line:'#ddd0ff',text:'#21172b',muted:'#887176',
     accent:'#7b61e8',accentInk:'#ffffff',accentDeep:'#5a43c2',hot:'#ff5f92',hotText:'#ff5f92',hotRgb:'255,126,166'},
 
@@ -327,8 +328,32 @@ Arcade.register({
     }
   },
 
+  revive:function(api){
+    var fx=api.fx, i, e;
+    // 가까운 악몽은 없애고, 나머지는 바깥으로 밀어낸다 (점수 없음)
+    for(i=0;i<S.enemies.length;i++){
+      e=S.enemies[i]; if(e.dead) continue;
+      var dx=e.x-S.cx, dy=e.y-S.cy, d=Math.hypot(dx,dy)||1;
+      if(d<170&&e.kind!=='boss'){ e.dead=true; fx.burst(e.x,e.y,6,'255,214,107',90,{size:[5,11],life:0.5}); }
+      else { e.kb=1; e.vx=dx/d*320; e.vy=dy/d*320; }
+    }
+    S.enemies=S.enemies.filter(function(x){ return !x.dead; });
+    S.dead=false; S.wake=0; S.shieldHit=0; S.grace=2.2;
+    S.shield=Math.max(S.shield,3); api.setLives(S.shield,SHIELD_MAX);
+    S.combo=0; S.holding=false; S.keyFire=false; S.keyRot=0;
+    S.spawnT=Math.max(S.spawnT,1.2);
+    updateSub(api);
+    api.setMeter(S.nova/NOVA_NEED,'별빛 폭발 준비 '+Math.floor(S.nova/NOVA_NEED*100)+'%',S.nova>=NOVA_NEED);
+    fx.ring(S.cx,S.cy,W*0.9,'255,214,107',1,4,0.8);
+    fx.ring(S.cx,S.cy,W*0.6,'172,151,254',0.8,3,0.6,0.12);
+    fx.flash(0.45,'255,240,220');
+    fx.text(W/2,S.cy-110,'이어서 GO!','#7b61e8',30,1.2,{stroke:'rgba(255,255,255,.95)',rise:12});
+    api.sfx.pluck(79,0.14); api.sfx.pluck(84,0.14,0.08); api.sfx.pluck(91,0.15,0.16);
+  },
+
   update:function(dt,api){
     var play=api.state==='play', fx=api.fx, i, e;
+    if(S.grace>0) S.grace-=dt;
     var c=center(api); S.cx=c.x; S.cy=c.y;
     if(play||api.state==='dying') S.time+=play?dt:0;
     S.muzzle=Math.max(0,S.muzzle-dt*8); S.shieldHit=Math.max(0,S.shieldHit-dt*2.5);
@@ -392,6 +417,7 @@ Arcade.register({
         if(e.minionT<=0){ e.minionT=Math.max(1.4,3-S.stage*0.2); spawnEnemy(api,'mini',e.x+(api.rng()-.5)*40,e.y+(api.rng()-.5)*40); }
       }
       if(d<44+e.r*0.6){
+        if(play&&S.grace>0){ e.kb=1; e.vx=-ux*260; e.vy=-uy*260; e.x-=ux*6; e.y-=uy*6; continue; }
         if(play) hurtShield(api,e);
         else { e.dead=true; fx.shards(e.x,e.y,5,TYPES[e.kind].col,90,3.5); }
         if(S.dead) break;
@@ -448,6 +474,10 @@ Arcade.register({
     ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(S.cx,S.cy+40,110,26,0,0,6.283); ctx.fill();
     /* 방패 고리 */
     var sr=50, sa=api.state==='play'?S.shield/SHIELD_MAX:1;
+    if(S.grace>0){
+      ctx.strokeStyle='rgba(255,214,107,'+(0.45+0.35*Math.sin(api.t*14))+')'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(S.cx,S.cy,sr+10,0,6.283); ctx.stroke();
+    }
     ctx.strokeStyle='rgba(255,255,255,'+(0.35+0.4*sa)+')'; ctx.lineWidth=3+S.shieldHit*4;
     ctx.setLineDash([6,6]); ctx.lineDashOffset=-t*12;
     ctx.beginPath(); ctx.arc(S.cx,S.cy,sr,0,6.283); ctx.stroke(); ctx.setLineDash([]);

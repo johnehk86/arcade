@@ -301,6 +301,7 @@ function gameOver(api){
   each(function(b,r,c){ list.push({x:cellX(r,c),y:cellY(r),r:r}); });
   list.sort(function(a,b){ return b.y-a.y; });
   list.forEach(function(p,i){ S.pops.push({x:p.x,y:p.y,c:GRAY,t:0.15+i*0.018,i:i,pts:0,sad:true}); });
+  S.lost={rows:S.rows,par:S.par};   // 이어하기에 쓸 판을 보관한다
   S.rows=[];
   var s=api.sfx; s.pluck(76,0.14); s.pluck(72,0.13,0.2); s.pluck(67,0.12,0.4); s.pluck(64,0.14,0.65);
   api.setMeter(null); api.setSub('');
@@ -358,6 +359,30 @@ Arcade.register({
     initBoard(api,6);
     S.cur=pickColor(api); S.next=pickColor(api);
     if(api.state==='play'){ api.setSub(''); updateHud(api); }
+  },
+  reviveText:'아래쪽 방울 4줄을 터뜨리고 이어서 쏴요',
+  // 이어하기: 끝날 때 보관한 판을 되살리고 아래쪽 줄을 점수 없이 터뜨린다. 새 줄 압박도 넉넉하게 되돌린다
+  revive:function(api){
+    var fx=api.fx, i=0, r, c;
+    S.pops=S.pops.filter(function(p){ return !p.sad; });
+    if(S.lost){ S.rows=S.lost.rows; S.par=S.lost.par; S.lost=null; }
+    trimRows();
+    var keep=Math.max(1,S.rows.length-4);
+    for(r=S.rows.length-1;r>=keep;r--){
+      for(c=0;c<11;c++){ var b=S.rows[r][c]; if(b){ S.pops.push({x:cellX(r,c),y:cellY(r),c:b.c,t:0.05+i*0.03,i:i,pts:0}); i++; } }
+      S.rows[r]=emptyRow();
+    }
+    trimRows();
+    while(S.rows.length>1&&lowestY()>=0&&lowestY()+R>dangerY(api)-RH*3) S.rows.pop();
+    each(function(b){ b.w=1; });
+    S.over=false; S.shot=null; S.aiming=false; S.kb=false; S.guide=null;
+    S.misses=0; S.rowT=-10; S.combo=0; S.hudT=0;
+    if(!presentColors().some(function(x){ return x===S.cur; })) S.cur=pickColor(api);
+    if(!presentColors().some(function(x){ return x===S.next; })) S.next=pickColor(api);
+    updateHud(api);
+    fx.text(W/2,api.H*0.44,'이어서 GO!','#ff5f92',30,1.3,{rise:14,stroke:'rgba(255,255,255,.95)'});
+    fx.ring(W/2,dangerY(api),W*0.7,'255,95,146',1.2,2.5,0.5);
+    api.sfx.pluck(76,0.15); api.sfx.pluck(81,0.15,0.1); api.sfx.pluck(88,0.16,0.2);
   },
   update:function(dt,api){
     var fx=api.fx, k;

@@ -290,6 +290,18 @@ Arcade.register({
     updateSub(api);
   },
 
+  reviveText:'15초를 더 받고 이어서 쏴요',
+  // 이어하기: 날아가던 화살은 치우고 시간을 15초 더한다. 점수와 단계는 그대로 둔다
+  revive:function(api){
+    S.ended=false; S.rem=Math.max(0,S.rem)+15; S.arrows.length=0;
+    S.drag=null; S.kb.drawing=false; S.combo=0; S.respawnAt=api.t+0.2;
+    api.setMeter(S.rem/TIME,'남은 시간 '+S.rem.toFixed(1)+'초',false);
+    updateSub(api);
+    api.fx.text(W/2,api.H*0.4,'이어서 GO! +15초','#ff5f92',26,1.3,{rise:16,stroke:'rgba(255,255,255,.9)'});
+    api.fx.ring(W/2,api.H*0.45,W*0.7,'255,126,166',1.3,2,0.4);
+    api.sfx.pluck(76,0.15); api.sfx.pluck(81,0.15,0.1); api.sfx.pluck(88,0.16,0.2);
+  },
+
   update:function(dt,api){
     var play=api.state==='play', i, t;
     if(play){

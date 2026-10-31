@@ -291,6 +291,11 @@ function step(dt,api){
         S.milestone++;
       }
     }
+    // 이어하기 직후 잠깐은 바닥의 별빛 그물이 받쳐 준다
+    if(S.grace>0){
+      S.grace-=dt;
+      if(b.vy>0&&b.y-S.cam>H*0.86){ b.vy=JUMP; b.sx=1.3; b.sy=0.7; api.fx.ring(b.x,b.y,50,'255,214,107',0.5,3,0.7); api.sfx.tone(330,0.16,'sine',0.14,{slide:620,wet:false}); }
+    }
     if(b.y-S.cam>H+40&&!S.fell){
       S.fell=true;
       api.sfx.tone(760,0.9,'triangle',0.15,{slide:140});
@@ -335,6 +340,7 @@ Arcade.register({
   how:'좌우로 끌기 · 화면 왼쪽/오른쪽 누르고 있기 · 방향키도 돼요 · 떨어지면 끝',
   lifeIcon:null,
   endDelay:1200,
+  reviveText:'구름 발판에서 다시 퐁! 2초 동안 별빛 그물이 받쳐 줘요',
   palette:{bg:'#fff6fb',surface:'#ffffff',surface2:'#fbf0ff',line:'#f3d3e2',text:'#21172b',muted:'#887176',
     accent:'#ff5f92',accentInk:'#ffffff',accentDeep:'#c23c6c',hot:'#ac97fe',hotText:'#634eb0',hotRgb:'172,151,254',light:true},
 
@@ -342,6 +348,18 @@ Arcade.register({
     keys.l=keys.r=false;
     newState(api,api.state!=='play');
     if(api.state==='play') updateSub(api);
+  },
+  revive:function(api){
+    var H=api.H, b=S.b, y=S.cam+H*0.7;
+    S.plats.push({x:W/2,y:y,w:150,type:'cloud',vx:0,jig:1,dead:false});
+    b.x=W/2; b.y=y; b.vy=SPRING; b.spin=1; b.rot=0; b.lastPlat=null; b.sx=1.3; b.sy=0.7;
+    S.fell=false; S.rocket=0; S.combo=0; S.grace=2.2; S.hold=0; S.dragged=false;
+    keys.l=keys.r=false;
+    api.fx.ring(W/2,y,110,'255,214,107',0.8,4,0.8);
+    api.fx.burst(W/2,y,22,'255,126,166',160,{size:[5,12],life:0.8});
+    api.fx.text(W/2,H*0.4,'이어서 GO!','#ff5f92',28,1.2,{stroke:'rgba(255,255,255,.95)',rise:14});
+    api.sfx.pluck(79,0.14); api.sfx.pluck(84,0.14,0.08); api.sfx.pluck(91,0.15,0.16);
+    updateSub(api);
   },
   update:function(dt,api){
     if(!S) return;
@@ -364,11 +382,17 @@ Arcade.register({
       }
     }
     var blink=S.blinkUntil&&S.t<S.blinkUntil;
+    if(S.grace>0){
+      ctx.strokeStyle='rgba(255,214,107,'+(0.35+0.25*Math.sin(t*10))+')'; ctx.lineWidth=3; ctx.setLineDash([6,6]);
+      ctx.beginPath(); ctx.moveTo(0,cam+H*0.86); ctx.lineTo(W,cam+H*0.86); ctx.stroke(); ctx.setLineDash([]);
+      ctx.globalAlpha=Math.sin(t*28)>0?1:0.45;
+    }
     if(api.state!=='over'||S.attract){
       drawBunny(ctx,b.x,b.y,1,b.sx,b.sy,b.rot,b.face,blink);
       if(b.x<20) drawBunny(ctx,b.x+W,b.y,1,b.sx,b.sy,b.rot,b.face,blink);
       else if(b.x>W-20) drawBunny(ctx,b.x-W,b.y,1,b.sx,b.sy,b.rot,b.face,blink);
     }
+    ctx.globalAlpha=1;
     ctx.restore();
     // 높이 표시
     if(api.state==='play'){

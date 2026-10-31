@@ -313,12 +313,29 @@ Arcade.register({
   how:'탭으로 점프 · 공중에서 한 번 더 탭하면 2단 점프 · 길게 누르면 조금 더 높이 · 구멍에 빠지면 끝',
   lifeIcon:'shield',
   endDelay:1300,
+  reviveText:'하트 2개를 돌려받고, 앞길의 장애물을 치운 뒤 이어서 달려요',
   palette:{bg:'#f2fbf8',surface:'#ffffff',surface2:'#e6f8f2',line:'#bfeee0',text:'#21172b',muted:'#6d7f7a',
     accent:'#1fae95',accentInk:'#ffffff',accentDeep:'#137a68',hot:'#ff5f92',hotText:'#ff5f92',hotRgb:'255,95,146',light:true},
 
   start:function(api){
     init(api,api.state!=='play');
     if(api.state==='play'){ api.setLives(3,3); api.setSub(''); api.setMeter(null); }
+  },
+  revive:function(api){
+    if(S.auto) return;
+    var gy=GY(api), from=S.dist-60, to=S.dist+W*1.5, i;
+    // 발밑과 앞쪽 1.5화면을 단단한 땅으로 메우고 장애물을 치운다
+    S.segs.push({x0:from,x1:to});
+    for(i=0;i<S.obs.length;i++){ var o=S.obs[i]; if(!o.dead&&o.x+o.w>from&&o.x<to){ o.dead=true; api.fx.burst(o.x-S.dist+o.w/2,gy-20,8,'255,182,210',120,{size:[5,10],life:0.6}); } }
+    S.dead=false; S.deadT=0; S.fellOff=false; S.rot=0;
+    S.y=gy; S.vy=0; S.air=false; S.jumps=0; S.buffer=0; S.held=false; S.rocket=0; S.trail.length=0;
+    S.v=speedAt(S.t);
+    S.lives=Math.max(S.lives,2); api.setLives(S.lives,3);
+    S.inv=2.2; S.streak=0; updateSub(api); api.setMeter(null);
+    api.fx.ring(BX,gy-14,110,'86,219,193',0.8,4,0.8);
+    api.fx.burst(BX,gy-14,22,'255,214,107',160,{size:[5,12],life:0.8});
+    api.fx.text(W/2,api.H*0.36,'이어서 GO!','#1fae95',28,1.2,{stroke:'rgba(255,255,255,.95)',rise:14});
+    api.sfx.pluck(79,0.14); api.sfx.pluck(84,0.14,0.08); api.sfx.pluck(91,0.15,0.16);
   },
   update:function(dt,api){
     if(api.state==='over'&&!S.auto&&S.deadT>1.5) init(api,true);

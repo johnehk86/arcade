@@ -330,6 +330,16 @@ Arcade.register({
     initBoard(api.state==='play'?api.rng:Math.random);
     if(api.state==='play'){ api.setMeter(1,'남은 시간 60.0초',false); api.setSub(''); }
   },
+  reviveText:'15초를 더 받고 이어서 이어요',
+  revive:function(api){
+    // 점수와 판은 그대로, 시간만 15초 더
+    S.ended=false; S.rem=15; S.lastTick=-1; S.combo=0; S.lastChain=S.el;
+    S.drag=false; S.chain=[]; S.loop=false; S.needCheck=true;
+    api.setSub(''); api.setMeter(S.rem/DUR,'남은 시간 '+S.rem.toFixed(1)+'초',false);
+    api.fx.text(W/2,cy(3),'이어서 GO!','#7b61e8',30,1.2,{stroke:'rgba(255,255,255,.95)',rise:16});
+    api.fx.ring(W/2,cy(3),W*0.7,'172,151,254',1,3,0.6);
+    var sf=api.sfx; [0,4,7,12].forEach(function(k,j){ sf.pluck(72+k,0.13,j*0.06); });
+  },
   update:function(dt,api){
     var fx=api.fx, c, r, s;
     S.L=layout(api.H);

@@ -61,6 +61,7 @@ function tap(api,x,y){
   }
   S.taps++;
   if(best<0){
+    if(S.time<(S.graceUntil||0)){ fx.ring(x,y,26,'136,113,118',0.4,2,0.4); return; }
     S.combo=0; S.timeLeft=Math.max(0,S.timeLeft-0.5);
     sfx.tone(140,0.16,'sine',0.14,{slide:80,wet:false}); api.haptic(8);
     fx.text(x,y-10,'헛손질 −0.5초','#887176',15,0.8,{stroke:'rgba(255,255,255,.9)'});
@@ -71,7 +72,7 @@ function tap(api,x,y){
   S.paws.push({x:x,y:y,age:0});
   if(cat.type==='thunder'){
     cat.state='hit'; cat.hitT=S.time;
-    S.combo=0; S.timeLeft=Math.max(0,S.timeLeft-3);
+    S.combo=0; if(S.time>=(S.graceUntil||0)) S.timeLeft=Math.max(0,S.timeLeft-3);
     fx.shake(9); fx.flash(0.7,'172,151,254'); fx.hitstop(0.06);
     sfx.noise(0.6,0.35,{freq:500,slide:80,type:'lowpass'}); sfx.tone(70,0.5,'sawtooth',0.08,{slide:40,wet:false});
     fx.text(hole.x,cy2-hole.r,'찌릿! −3초','#634eb0',22,1.1,{stroke:'rgba(255,255,255,.95)'});
@@ -285,6 +286,16 @@ Arcade.register({
     S={holes:newHoles(),paws:[],hearts:[],time:0,elapsed:0,timeLeft:TIME,combo:0,maxCombo:0,boops:0,taps:0,
       reactSum:0,reactN:0,fever:0,fv:0,nextSpawn:0.6,attractAt:0,ended:false};
     if(api.state==='play'){ api.setMeter(1,'남은 시간 45.0초',false); updateSub(api); }
+  },
+  reviveText:'12초를 더 받고 이어서 냥냥 펀치!',
+  revive:function(api){
+    // 점수는 그대로, 시간만 12초 더. 남아 있던 고양이는 치우고 잠깐 숨 돌릴 틈을 준다
+    S.ended=false; S.timeLeft=12; S.combo=0; S.graceUntil=S.time+1; S.nextSpawn=0.6;
+    for(var k=0;k<S.holes.length;k++) S.holes[k].cat=null;
+    updateSub(api); api.setMeter(S.timeLeft/TIME,'남은 시간 '+S.timeLeft.toFixed(1)+'초',false);
+    api.fx.text(W/2,api.H*0.34,'이어서 GO!','#ff5f92',30,1.2,{stroke:'rgba(255,255,255,.95)',rise:16});
+    api.fx.ring(W/2,api.H*0.5,W*0.7,'255,126,166',1,3,0.6);
+    var sf=api.sfx; [0,4,7,12].forEach(function(n,j){ sf.pluck(72+n,0.13,j*0.06); });
   },
   update:function(dt,api){
     var t, k, c;

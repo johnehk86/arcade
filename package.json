@@ -1,0 +1,20 @@
+{
+  "name": "moon-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "달빛 아케이드: 원터치 게임 12종 (웹 + 안드로이드 앱)",
+  "scripts": {
+    "build": "sh build.sh",
+    "build:app": "sh build.sh app && npx cap sync android",
+    "build:release": "sh build.sh release && npx cap sync android",
+    "open:android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.3.0",
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}

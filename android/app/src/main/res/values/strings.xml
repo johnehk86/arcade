@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">달빛 아케이드</string>
+    <string name="title_activity_main">달빛 아케이드</string>
+    <string name="package_name">com.johnehk86.moonarcade</string>
+    <string name="custom_url_scheme">com.johnehk86.moonarcade</string>
+</resources>

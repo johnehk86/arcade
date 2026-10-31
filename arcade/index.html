@@ -294,6 +294,24 @@ canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-ac
 .chase{margin:0;text-align:center;font:600 13px/1.4 var(--body);min-height:19px}
 .chase b{color:var(--g-hot);font-weight:800}
 .reward{align-self:center;display:inline-flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:#fff7dc;border:1px solid #ffe7a8;font:400 14px/1 var(--display);color:#8a5a00}
+.dbl{align-self:center;display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;border:2px solid #ffe08a;
+  background:linear-gradient(90deg,#fff3c4,#ffe7f0);color:#7a4a00;font:400 15px/1 var(--display);box-shadow:0 3px 10px rgba(255,200,90,.3)}
+.dbl b{color:#c45a00;font-weight:400}
+.dbl .play-ic{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#ffb020;color:#fff;font-size:9px}
+.dbl:disabled{opacity:.6}
+.revive{gap:12px}
+.rv-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.rv-count{flex:none;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font:400 28px/1 var(--display);color:var(--g-accent-deep);
+  background:var(--g-surface-2);border:3px solid var(--g-accent);animation:jelly 1s ease-in-out infinite}
+.rv-score{margin:0;font:600 13px/1.4 var(--body);color:var(--g-muted)}
+.rv-score b{font:400 20px/1 var(--display);color:var(--g-text)}
+#rv-watch:disabled{opacity:.6}
+.mission .x2{flex:none;padding:7px 10px;border-radius:999px;border:2px solid #ffe08a;background:#fff3c4;color:#8a5a00;font:800 11px/1 var(--body)}
+.mission .x2:disabled{opacity:.5}
+.ad-demo{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(33,23,43,.82)}
+.ad-demo-box{display:grid;gap:10px;justify-items:center;padding:28px 30px;border-radius:24px;background:#fff;font:600 14px/1.4 var(--body);color:var(--ink)}
+.ad-demo-box b{font:400 22px/1 var(--display);color:var(--pink-hot)}
+.ad-demo-box button{padding:8px 16px;border-radius:999px;border:1px solid var(--pink-line);background:#fff0f6;color:var(--berry);font:700 13px/1 var(--body)}
 .heal{margin:0;text-align:center;font:600 12px/1.4 var(--body);color:var(--g-muted)}
 .note{margin:0;font:600 11px/1.4 var(--body);color:var(--g-muted);text-align:center;min-height:16px}
 .row2{display:grid;grid-template-columns:2fr 1fr;gap:10px}
@@ -469,6 +487,7 @@ canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-ac
       <div class="rank-line" id="rank-line"></div>
       <p class="chase" id="chase"></p>
       <span class="reward" id="reward" hidden></span>
+      <button class="dbl" id="dbl" type="button" hidden><span class="play-ic" aria-hidden="true">▶</span>광고 보고 별사탕 <b id="dbl-n">+1</b> 더 받기</button>
       <p class="heal" id="heal"></p>
       <p class="note" id="over-note"></p>
       <div class="row2">
@@ -476,6 +495,20 @@ canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-ac
         <button class="btn ghost" id="to-board" type="button">랭킹</button>
       </div>
       <button class="link" id="to-menu" type="button">모드 바꾸기 · 닉네임 바꾸기</button>
+    </section>
+
+    <section id="revive" class="sheet revive" hidden aria-labelledby="rv-title">
+      <span class="kicker">한 번 더 기회!</span>
+      <div class="rv-top">
+        <div>
+          <h2 class="title" id="rv-title">이어서 할까요?</h2>
+          <p class="lede" id="rv-desc">짧은 광고를 보면 지금 점수 그대로 이어서 할 수 있어요.</p>
+        </div>
+        <span class="rv-count" id="rv-count" aria-live="polite">6</span>
+      </div>
+      <p class="rv-score">지금 점수 <b id="rv-score">0</b></p>
+      <button class="btn" id="rv-watch" type="button">▶ 광고 보고 이어하기</button>
+      <button class="link" id="rv-skip" type="button">괜찮아요, 결과 볼게요</button>
     </section>
 
     <section id="board" hidden>

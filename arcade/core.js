@@ -231,6 +231,122 @@ api.end=function(){
 };
 function setState(s){ api.state=s; stage.dataset.state=s; }
 
+/* ---------- 보상형 광고: 앱(Capacitor + AdMob)에서만 켜진다 ----------
+   window.ARCADE_ADS = {units:{revive, double, mission}, testing:true|false} 는 앱 빌드에서만 넣는다.
+   웹사이트와 Claude 아티팩트에서는 광고 버튼이 나오지 않는다. 주소에 ?adsdemo 를 붙이면 가짜 광고로 흐름을 시험할 수 있다. */
+var ads=(function(){
+  var TEST_UNIT='ca-app-pub-3940256099942544/5224354917';
+  var demo=/[?&]adsdemo\b/.test(location.search);
+  var busy=false, loaded={}, inited=null;
+  function cfg(){ return window.ARCADE_ADS||null; }
+  var admob=null;
+  function plugin(){
+    if(admob) return admob;
+    var C=window.Capacitor;
+    try{
+      if(!(C&&C.isNativePlatform&&C.isNativePlatform())) return null;
+      // 번들러 없이 쓰므로 @capacitor/core(capacitor.js)의 registerPlugin으로 네이티브 AdMob 프록시를 만든다
+      var reg=(window.capacitorExports&&window.capacitorExports.registerPlugin)||C.registerPlugin;
+      admob=(C.Plugins&&C.Plugins.AdMob)||(reg?reg('AdMob'):null);
+      return admob;
+    }catch(e){ return null; }
+  }
+  function unit(pl){ var c=cfg(); return c.testing?TEST_UNIT:(c.units[pl]||c.units.revive); }
+  function init(){
+    var pg=plugin(); if(!pg||!cfg()) return Promise.resolve(false);
+    if(!inited) inited=Promise.resolve(pg.initialize({initializeForTesting:!!cfg().testing})).then(function(){ return true; },function(){ return false; });
+    return inited;
+  }
+  function prepare(pl){
+    var pg=plugin();
+    return init().then(function(ok){
+      if(!ok) throw new Error('init');
+      return pg.prepareRewardVideoAd({adId:unit(pl),isTesting:!!cfg().testing});
+    }).then(function(){ loaded[pl]=true; });
+  }
+  function available(){ return demo||(!!plugin()&&!!cfg()); }
+  function demoShow(){
+    return new Promise(function(res){
+      var o=document.createElement('div'); o.className='ad-demo'; o.setAttribute('role','dialog');
+      var b=document.createElement('div'); b.className='ad-demo-box';
+      var t=document.createElement('b'); t.textContent='테스트 광고';
+      var c=document.createElement('span'); var n=3; c.textContent=n+'초 뒤 보상';
+      var x=document.createElement('button'); x.type='button'; x.textContent='닫기';
+      b.append(t,c,x); o.append(b); document.body.append(o);
+      var iv=setInterval(function(){ n--; if(n<=0){ clearInterval(iv); c.textContent='보상을 받았어요'; setTimeout(function(){ o.remove(); res('rewarded'); },500); } else c.textContent=n+'초 뒤 보상'; },1000);
+      x.addEventListener('click',function(){ clearInterval(iv); o.remove(); res(n<=0?'rewarded':'dismissed'); });
+    });
+  }
+  function nativeShow(pl){
+    var pg=plugin(), rewarded=false, handles=[], settled=false;
+    return new Promise(function(res){
+      function done(r){ if(settled) return; settled=true; handles.forEach(function(h){ try{ h.remove(); }catch(e){} }); res(r); }
+      function on(ev,fn){ Promise.resolve(pg.addListener(ev,fn)).then(function(h){ if(settled){ try{ h.remove(); }catch(e){} } else handles.push(h); }); }
+      on('onRewardedVideoAdReward',function(){ rewarded=true; });
+      on('onRewardedVideoAdDismissed',function(){ done(rewarded?'rewarded':'dismissed'); });
+      on('onRewardedVideoAdFailedToShow',function(){ done('failed'); });
+      (loaded[pl]?Promise.resolve():prepare(pl)).then(function(){
+        loaded[pl]=false;
+        return pg.showRewardVideoAd();
+      }).then(function(item){ if(item) rewarded=true; setTimeout(function(){ done(rewarded?'rewarded':'dismissed'); },90000); })
+        .catch(function(){ done('failed'); });
+    });
+  }
+  function show(pl){
+    if(busy) return Promise.resolve('busy');
+    busy=true;
+    var wasPaused=paused; paused=true;
+    try{ if(au.ctx) au.ctx.suspend(); }catch(e){}
+    return (demo&&!plugin()?demoShow():nativeShow(pl)).then(function(r){
+      busy=false; paused=wasPaused; lastNow=performance.now();
+      try{ if(au.ctx&&!au.muted) au.ctx.resume(); }catch(e){}
+      if(plugin()) prepare(pl).catch(function(){});
+      return r;
+    });
+  }
+  function warm(){ if(plugin()&&cfg()) ['revive','double','mission'].forEach(function(pl){ prepare(pl).catch(function(){}); }); }
+  return {available:available,show:show,warm:warm};
+})();
+A.ads=ads;
+
+/* ---------- 이어하기: 판이 끝나는 순간 한 번 제안한다 ---------- */
+var reviveTimer=null;
+function afterDie(){
+  dieAt=Infinity;
+  if(cur.revive&&!api.revived&&api.score>0&&ads.available()) showRevive();
+  else showOver();
+}
+function showRevive(){
+  paused=true;
+  $('rv-desc').textContent=cur.reviveText||'짧은 광고를 보면 지금 점수 그대로 이어서 할 수 있어요.';
+  $('rv-score').textContent=fmt(api.score);
+  $('revive').hidden=false;
+  var n=6, el=$('rv-count'); el.textContent=String(n);
+  clearInterval(reviveTimer);
+  reviveTimer=setInterval(function(){ n--; el.textContent=String(Math.max(0,n)); if(n<=0) skipRevive(); },1000);
+}
+function closeRevive(){ clearInterval(reviveTimer); reviveTimer=null; $('revive').hidden=true; }
+function skipRevive(){ if($('revive').hidden) return; closeRevive(); paused=false; showOver(); }
+function watchRevive(){
+  clearInterval(reviveTimer); reviveTimer=null;
+  $('rv-watch').disabled=true;
+  ads.show('revive').then(function(r){
+    $('rv-watch').disabled=false;
+    closeRevive();
+    if(r==='rewarded'&&cur){
+      api.revived=true; paused=false; lastNow=performance.now();
+      setState('play');
+      cur.revive(api);
+      renderRival(false);
+      haptic(20);
+    } else {
+      paused=false;
+      if(r!=='dismissed') toast('광고를 불러오지 못했어요. 결과를 보여 드릴게요.');
+      showOver();
+    }
+  });
+}
+
 /* ---------- 따라잡을 상대 ---------- */
 function buildTargets(){
   targets=[];
@@ -289,7 +405,7 @@ function openGame(g){
   $('m-how').textContent=g.how;
   $('board-title').textContent=g.title;
   livesMax=-1; livesShown=-1;
-  $('menu').hidden=false; $('over').hidden=true; $('board').hidden=true; paused=false;
+  $('menu').hidden=false; $('over').hidden=true; $('board').hidden=true; paused=false; closeRevive();
   setMode(modeOf(g.id));
   resize();
   setState('menu'); api.score=0; $('score').textContent='0'; api.setSub(''); api.setMeter(null); $('lives').hidden=true;
@@ -301,7 +417,7 @@ function openGame(g){
 }
 function closeGame(){
   cur=null; view='hub';
-  stage.hidden=true; $('hub').hidden=false; paused=false;
+  stage.hidden=true; $('hub').hidden=false; paused=false; closeRevive();
   document.title='달빛 아케이드';
   renderCards(); sizeCards();
 }
@@ -314,7 +430,8 @@ function startRun(){
   api.rng=api.daily?mulberry(seedFrom(cur.id+'-'+today)):Math.random;
   api.score=0; $('score').textContent='0'; api.setSub(''); api.setMeter(null);
   livesMax=-1; livesShown=-1;
-  fx.reset(); api.t=0; api.pointerDown=false;
+  fx.reset(); api.t=0; api.pointerDown=false; api.revived=false;
+  closeRevive(); $('dbl').hidden=true;
   setState('play');
   cur.start(api);
   buildTargets();
@@ -337,6 +454,8 @@ function showOver(){
   $('heal').textContent=res.line||'';
   var gain=onRunEnd(id,daily,sc>0&&sc>prev), rw=$('reward');
   rw.textContent='별사탕 +'+gain.earned+(gain.ready?' · 받을 미션 '+gain.ready+'개':''); rw.hidden=false;
+  var dbl=$('dbl'); dbl.hidden=!ads.available(); dbl.disabled=false; dbl.dataset.n=String(gain.earned);
+  $('dbl-n').textContent='+'+gain.earned;
   $('over').hidden=false;
   updateBest();
   renderResult(null,'pending');
@@ -554,12 +673,12 @@ function onRunEnd(id,daily,isBest){
   var ready=d.missions.filter(function(mid){ var m=missionDef(mid); return d.claimed.indexOf(mid)<0&&m.get(d)>=m.goal; }).length;
   return {earned:earned,ready:ready};
 }
-function claimMission(mid){
-  var d=meta.day, m=missionDef(mid);
+function claimMission(mid,mult){
+  var d=meta.day, m=missionDef(mid), got=m?m.reward*(mult||1):0;
   if(!m||d.claimed.indexOf(mid)>=0||m.get(d)<m.goal) return;
-  d.claimed.push(mid); meta.stars+=m.reward; meta.xp+=m.reward; saveMeta();
+  d.claimed.push(mid); meta.stars+=got; meta.xp+=got; saveMeta();
   ensureAudio(); pluck(84,0.14); pluck(88,0.13,0.08); pluck(91,0.14,0.16); haptic(12);
-  toast('미션 완료! 별사탕 +'+m.reward);
+  toast((mult>1?'2배 보상! ':'미션 완료! ')+'별사탕 +'+got);
   renderMeta();
 }
 function toast(msg){
@@ -598,7 +717,14 @@ function renderMeta(){
     var btn=document.createElement('button'); btn.type='button';
     btn.textContent=claimed?'완료':ready?'받기':'진행 중'; btn.disabled=!ready;
     btn.addEventListener('click',function(){ claimMission(mid); });
-    row.append(ic,mid2,btn); wrap.append(row);
+    row.append(ic,mid2);
+    if(ready&&ads.available()){
+      var b2=document.createElement('button'); b2.type='button'; b2.className='x2'; b2.textContent='▶ 2배';
+      b2.setAttribute('aria-label','광고 보고 보상 2배로 받기');
+      b2.addEventListener('click',function(){ b2.disabled=true; ads.show('mission').then(function(r){ if(r==='rewarded') claimMission(mid,2); else b2.disabled=false; }); });
+      row.append(b2);
+    }
+    row.append(btn); wrap.append(row);
   });
   $('ms-dot').hidden=readyCount===0;
 }
@@ -690,7 +816,7 @@ function frame(now){
     if(!paused){
       if(fx.stop>0){ fx.stop-=dt; }
       else { api.t+=dt; cur.update(dt,api); fx.update(dt); }
-      if(api.state==='dying'&&now>=dieAt) showOver();
+      if(api.state==='dying'&&now>=dieAt) afterDie();
     }
     var sh=fx.shakeA, z=1+fx.pulseA*0.02;
     ctx.setTransform(scale,0,0,scale,0,0);
@@ -780,6 +906,16 @@ A.boot=function(){
   $('mode-daily').addEventListener('click',function(){ setMode('daily'); });
   $('mode-free').addEventListener('click',function(){ setMode('free'); });
   $('start').addEventListener('click',startRun);
+  $('rv-watch').addEventListener('click',watchRevive);
+  $('rv-skip').addEventListener('click',skipRevive);
+  $('dbl').addEventListener('click',function(){
+    var b=$('dbl'), n=Number(b.dataset.n)||0; b.disabled=true;
+    ads.show('double').then(function(r){
+      if(r==='rewarded'&&n>0){ meta.stars+=n; meta.xp+=n; saveMeta(); b.hidden=true; $('reward').textContent='별사탕 +'+(n*2)+' (2배!)'; pluck(84,0.14); pluck(91,0.14,0.1); toast('별사탕 2배! +'+n+' 더'); }
+      else b.disabled=false;
+    });
+  });
+  ads.warm();
   $('again').addEventListener('click',startRun);
   $('to-board').addEventListener('click',function(){ boardTab=api.daily?'daily':'all'; openBoard(); });
   $('btn-board').addEventListener('click',openBoard);

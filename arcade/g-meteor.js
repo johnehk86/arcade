@@ -569,6 +569,25 @@ Arcade.register({
     accent:'#7b61e8',accentInk:'#ffffff',accentDeep:'#4b3596',hot:'#ff5f92',hotText:'#ff5f92',hotRgb:'255,95,146',light:true},
   lifeIcon:'shield',
   endDelay:1200,
+  reviveText:'방패 2개를 돌려받고, 화면의 별똥별을 싹 치운 뒤 이어서 쏴요',
+  revive:function(api){
+    var H=api.H, sh=S.ship, fx=api.fx, i, e;
+    // 화면의 적과 경고를 점수 없이 부드럽게 지운다
+    for(i=0;i<S.enemies.length;i++){
+      e=S.enemies[i]; if(e.dead) continue; e.dead=true;
+      fx.burst(e.x,e.y,6,'255,214,107',90,{size:[5,11],life:0.5});
+    }
+    S.enemies.length=0; S.warns.length=0; S.bullets.length=0;
+    sh.dead=false; sh.inv=2.2; sh.x=W/2; sh.px=W/2; sh.y=H-110; sh.bank=0;
+    S.shields=Math.max(S.shields,2); api.setLives(S.shields,3);
+    S.combo=0; S.mult=1; S.od=0; S.spawnAcc=-1.2; S.dartAcc=0;
+    updSub(api); api.setMeter(null);
+    fx.ring(sh.x,sh.y,W*0.9,'255,214,107',1,4,0.8);
+    fx.ring(sh.x,sh.y,W*0.6,'172,151,254',0.8,3,0.6,0.12);
+    fx.flash(0.5,'255,236,200');
+    fx.text(W/2,H*0.4,'이어서 GO!','#7b61e8',30,1.2,{rise:14,stroke:'rgba(255,255,255,.95)'});
+    api.sfx.pluck(79,0.14); api.sfx.pluck(84,0.14,0.08); api.sfx.pluck(91,0.15,0.16);
+  },
   start:function(api){
     fresh(api); keys={};
     if(api.state==='play'){ api.setLives(3,3); api.setSub(''); api.setMeter(null); }
